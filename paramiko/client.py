@@ -36,6 +36,7 @@ from paramiko.ecdsakey import ECDSAKey
 from paramiko.ed25519key import Ed25519Key
 from paramiko.hostkeys import HostKeys
 from paramiko.rsakey import RSAKey
+from paramiko.ssh_exception import BadAuthenticationType
 from paramiko.ssh_exception import (
     SSHException,
     BadHostKeyException,
@@ -679,6 +680,16 @@ class SSHClient(ClosingContextManager):
         saved_exception = None
         two_factor = False
         allowed_types = set()
+
+        # detect what authentication methods the server supports
+        # mirrors what openssh client does
+        try:
+            self._transport.auth_none(username)
+        except BadAuthenticationType as e:
+            allowed_types = set(e.allowed_types)
+        else:
+            return  # successful login with no auth
+
         two_factor_types = {"keyboard-interactive", "password"}
         if passphrase is None and password is not None:
             passphrase = password
